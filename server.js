@@ -7,6 +7,7 @@ const passport = require('passport');
 
 const connectDB = require('./config/db.js');
 const errorHandler = require('./middleware/errorHandler');
+const swaggerDocument = require('./swagger/swagger.json');
 
 dotenv.config();
 
@@ -27,7 +28,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware for Passport's session-based OAuth flow
+// Session middleware
 app.use(
     session({
         secret: process.env.SESSION_SECRET || 'change-me-in-prod',
@@ -36,23 +37,65 @@ app.use(
         store: MongoStore.create({
             mongoUrl: process.env.MONGODB_URI,
             collectionName: 'sessions',
-            ttl: 60 * 60 * 24, // 1 day
+            ttl: 60 * 60 * 24,
         }),
         cookie: {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite:
-                process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 1000 * 60 * 60 * 24, // 1 day
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 1000 * 60 * 60 * 24,
         },
     })
 );
 
-// Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Main routes
+// ----- Swagger -----
+
+// 1) Expose the OpenAPI JSON
+app.get('/docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerDocument);
+});
+
+// 2) Serve the Swagger UI HTML that loads assets from a CDN
+app.get('/api-docs', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Campus Study Hub API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        url: '/docs.json',
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: 'StandaloneLayout'
+      });
+    };
+  </script>
+</body>
+</html>`);
+});
+
+// ----- Main routes -----
 app.use('/', require('./routes/index.js'));
 
 // Error handling middleware
@@ -61,18 +104,10 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 8080;
 
-
 if (require.main === module) {
-    const PORT = process.env.PORT || 8080;
-
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
 }
 
 module.exports = app;
-
-
-// app.listen(PORT, () => {
-    // console.log(`Server running on port ${PORT}`);
-// });
