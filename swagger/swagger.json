@@ -3,21 +3,15 @@
   "info": {
     "title": "Campus Study Hub API",
     "version": "1.0.0",
-    "description": "API for managing users, authentication, study groups, sessions, and resources."
+    "description": "API for managing users, authentication, study groups, sessions, and resources. Supports both local JWT auth and Google OAuth 2.0."
   },
   "servers": [
-    {
-      "url": "http://localhost:8080",
-      "description": "Local server"
-    },
-    {
-      "url": "https://your-render-app-url.onrender.com",
-      "description": "Production server"
-    }
+    { "url": "http://localhost:8080", "description": "Local server" },
+    { "url": "https://your-render-app-url.onrender.com", "description": "Production server" }
   ],
   "tags": [
     { "name": "Users", "description": "User management" },
-    { "name": "Auth", "description": "Authentication and sessions" },
+    { "name": "Auth", "description": "Authentication and sessions (local + Google OAuth)" },
     { "name": "Study Groups", "description": "Study group management" },
     { "name": "Sessions", "description": "Study session management" },
     { "name": "Resources", "description": "Study resource management" }
@@ -129,7 +123,7 @@
     "/auth/register": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Register a new user",
+        "summary": "Register a new user (local)",
         "requestBody": {
           "required": true,
           "content": {
@@ -207,6 +201,93 @@
         }
       }
     },
+
+    "/auth/google": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Start Google OAuth 2.0 login",
+        "description": "Initiates the Google OAuth 2.0 flow. Redirects the browser to Google's consent screen. Open this URL directly in a browser (not via fetch/XHR) so that the redirect chain and session cookie work correctly.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Google's OAuth consent screen",
+            "headers": {
+              "Location": {
+                "description": "Google authorization URL",
+                "schema": {
+                  "type": "string",
+                  "example": "https://accounts.google.com/o/oauth2/v2/auth?client_id=..."
+                }
+              }
+            }
+          },
+          "500": { "description": "Google OAuth strategy not configured" }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Google OAuth 2.0 callback",
+        "description": "Google redirects here after the user consents. On success, the server either (a) redirects to `CLIENT_URL` if it is configured, or (b) returns a JSON payload containing the authenticated user (and optionally a JWT). On failure, the user is redirected to `/auth/google/failure`.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Authorization code returned by Google"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Opaque value passed through the flow (set by Passport)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful. Returned when `CLIENT_URL` is not set and the server responds with JSON.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthCallbackResponse" }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to `CLIENT_URL` (or to `/auth/google/failure` on error)",
+            "headers": {
+              "Location": {
+                "description": "Frontend URL or failure URL",
+                "schema": {
+                  "type": "string",
+                  "example": "http://localhost:3000/api-docs"
+                }
+              }
+            }
+          },
+          "401": { "description": "Google authentication failed" }
+        }
+      }
+    },
+    "/auth/google/failure": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Google OAuth failure handler",
+        "description": "Returned when the Google OAuth flow fails (user denied, invalid code, or account linking error).",
+        "responses": {
+          "401": {
+            "description": "Google authentication failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+
     "/groups": {
       "get": {
         "tags": ["Study Groups"],
@@ -638,7 +719,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Paste the JWT returned from /auth/login or /auth/register."
+        "description": "Paste the JWT returned from /auth/login, /auth/register, or /auth/google/callback."
       }
     },
     "schemas": {
@@ -646,11 +727,23 @@
         "type": "object",
         "properties": {
           "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "googleId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Google account ID (present only for OAuth users)",
+            "example": "109876543210987654321"
+          },
           "firstName": { "type": "string", "example": "John" },
           "lastName": { "type": "string", "example": "Doe" },
           "email": { "type": "string", "format": "email", "example": "john@example.com" },
           "role": { "type": "string", "enum": ["student", "tutor", "admin"], "example": "student" },
           "major": { "type": "string", "example": "Computer Science" },
+          "provider": {
+            "type": "string",
+            "enum": ["local", "google"],
+            "description": "How the account was created",
+            "example": "local"
+          },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -692,6 +785,19 @@
           "user": { "$ref": "#/components/schemas/User" }
         }
       },
+      "OAuthCallbackResponse": {
+        "type": "object",
+        "description": "Returned from /auth/google/callback when the server responds with JSON instead of a redirect.",
+        "properties": {
+          "message": { "type": "string", "example": "Login successful" },
+          "token": {
+            "type": "string",
+            "description": "Only present if the server signs a JWT in the callback.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": { "$ref": "#/components/schemas/User" }
+        }
+      },
       "StudyGroup": {
         "type": "object",
         "properties": {
@@ -700,10 +806,7 @@
           "course": { "type": "string", "example": "CSE 341" },
           "description": { "type": "string", "example": "Web Services study team" },
           "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
-          "members": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
+          "members": { "type": "array", "items": { "type": "string" } },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -715,10 +818,7 @@
           "course": { "type": "string", "example": "CSE 341" },
           "description": { "type": "string", "example": "Web Services study team" },
           "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
-          "members": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "members": { "type": "array", "items": { "type": "string" } }
         }
       },
       "StudyGroupUpdate": {
@@ -727,10 +827,7 @@
           "name": { "type": "string" },
           "course": { "type": "string" },
           "description": { "type": "string" },
-          "members": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "members": { "type": "array", "items": { "type": "string" } }
         }
       },
       "Session": {
@@ -742,10 +839,7 @@
           "location": { "type": "string", "example": "Library Room 204" },
           "topic": { "type": "string", "example": "REST API design" },
           "description": { "type": "string", "example": "Review Express routing and middleware" },
-          "attendees": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "attendees": { "type": "array", "items": { "type": "string" } }
         }
       },
       "SessionCreate": {
@@ -757,10 +851,7 @@
           "location": { "type": "string", "example": "Library Room 204" },
           "topic": { "type": "string", "example": "REST API design" },
           "description": { "type": "string", "example": "Review Express routing and middleware" },
-          "attendees": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "attendees": { "type": "array", "items": { "type": "string" } }
         }
       },
       "SessionUpdate": {
@@ -770,10 +861,7 @@
           "location": { "type": "string" },
           "topic": { "type": "string" },
           "description": { "type": "string" },
-          "attendees": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "attendees": { "type": "array", "items": { "type": "string" } }
         }
       },
       "Resource": {
