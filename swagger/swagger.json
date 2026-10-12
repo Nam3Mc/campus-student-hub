@@ -3,7 +3,7 @@
   "info": {
     "title": "Campus Study Hub API",
     "version": "1.0.0",
-    "description": "API for managing users, authentication, study groups, sessions, and resources. Supports email/password JWT auth and Google OAuth 2.0."
+    "description": "API for managing users, authentication, study groups, sessions, and resources."
   },
   "servers": [
     {
@@ -18,7 +18,6 @@
   "tags": [
     { "name": "Users", "description": "User management" },
     { "name": "Auth", "description": "Authentication and sessions" },
-    { "name": "OAuth", "description": "Third-party authentication (Google)" },
     { "name": "Study Groups", "description": "Study group management" },
     { "name": "Sessions", "description": "Study session management" },
     { "name": "Resources", "description": "Study resource management" }
@@ -205,50 +204,6 @@
         "responses": {
           "200": { "description": "Logged out successfully" },
           "401": { "description": "Unauthorized" }
-        }
-      }
-    },
-    "/auth/google": {
-      "get": {
-        "tags": ["OAuth"],
-        "summary": "Start Google OAuth flow",
-        "description": "Redirects the browser to Google's consent screen. **Open this URL directly in a browser tab**, not via fetch/Postman, because it returns a 302 redirect to accounts.google.com.",
-        "responses": {
-          "302": { "description": "Redirect to Google's authorization page" }
-        }
-      }
-    },
-    "/auth/google/callback": {
-      "get": {
-        "tags": ["OAuth"],
-        "summary": "Google OAuth callback",
-        "description": "Google redirects here after the user consents. On success, the server issues a JWT identical in shape to the one returned by /auth/login, so all existing bearer-protected routes accept it. On failure, the user is redirected to /auth/google/failure.",
-        "responses": {
-          "200": {
-            "description": "Google login successful; JWT and user returned",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/GoogleLoginResponse" }
-              }
-            }
-          },
-          "302": { "description": "Redirect to /auth/google/failure when authentication fails" }
-        }
-      }
-    },
-    "/auth/google/failure": {
-      "get": {
-        "tags": ["OAuth"],
-        "summary": "Google OAuth failure endpoint",
-        "responses": {
-          "401": {
-            "description": "Google authentication failed",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
         }
       }
     },
@@ -683,7 +638,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Paste the JWT returned from /auth/login, /auth/register, or the /auth/google/callback flow."
+        "description": "Paste the JWT returned from /auth/login or /auth/register."
       }
     },
     "schemas": {
@@ -696,12 +651,6 @@
           "email": { "type": "string", "format": "email", "example": "john@example.com" },
           "role": { "type": "string", "enum": ["student", "tutor", "admin"], "example": "student" },
           "major": { "type": "string", "example": "Computer Science" },
-          "provider": {
-            "type": "string",
-            "enum": ["local", "google"],
-            "example": "local",
-            "description": "How the account was created: 'local' = email/password, 'google' = Google OAuth."
-          },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -739,14 +688,6 @@
       "AuthResponse": {
         "type": "object",
         "properties": {
-          "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
-          "user": { "$ref": "#/components/schemas/User" }
-        }
-      },
-      "GoogleLoginResponse": {
-        "type": "object",
-        "properties": {
-          "message": { "type": "string", "example": "Google login successful" },
           "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
           "user": { "$ref": "#/components/schemas/User" }
         }

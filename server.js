@@ -1,34 +1,27 @@
-require('dotenv').config();  
-
 const express = require('express');
 const cors = require('cors');
-const session = require('express-session');
+const dotenv = require('dotenv');
 const connectDB = require('./config/db.js');
 const errorHandler = require('./middleware/errorHandler');
-const passport = require('./config/passport');
 
+
+dotenv.config();
+
+// Connect to MongoDB
 connectDB();
 
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-  })
-);
-
-app.use(passport.initialize());
-app.use(passport.session());
-
+// Main Routes
 app.use('/', require('./routes/index.js'));
 app.use(errorHandler);
 
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
