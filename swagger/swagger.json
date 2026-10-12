@@ -1,0 +1,820 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Campus Study Hub API",
+    "version": "1.0.0",
+    "description": "API for managing users, authentication, study groups, sessions, and resources."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local server"
+    },
+    {
+      "url": "https://your-render-app-url.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    { "name": "Users", "description": "User management" },
+    { "name": "Auth", "description": "Authentication and sessions" },
+    { "name": "Study Groups", "description": "Study group management" },
+    { "name": "Sessions", "description": "Study session management" },
+    { "name": "Resources", "description": "Study resource management" }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get all users",
+        "responses": {
+          "200": {
+            "description": "List of users retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/User" }
+                }
+              }
+            }
+          },
+          "500": { "description": "Server error" }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create a new user (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Missing required fields" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - admin only" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "description": "User ID (Mongo ObjectId)"
+        }
+      ],
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "responses": {
+          "200": {
+            "description": "User details retrieved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "404": { "description": "User not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "User updated successfully (No Content)" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User not found" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Validation error" },
+          "409": { "description": "Email already registered" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login and receive JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Missing credentials" },
+          "401": { "description": "Invalid email or password" }
+        }
+      }
+    },
+    "/auth/status": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Check login status (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Authenticated user info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Log out (client-side token discard)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Logged out successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/groups": {
+      "get": {
+        "tags": ["Study Groups"],
+        "summary": "Get all study groups",
+        "responses": {
+          "200": {
+            "description": "List of study groups retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/StudyGroup" }
+                }
+              }
+            }
+          },
+          "500": { "description": "Server error" }
+        }
+      },
+      "post": {
+        "tags": ["Study Groups"],
+        "summary": "Create a new study group (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StudyGroupCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Study group created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StudyGroup" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Missing required fields" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/groups/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "description": "Study group ID (Mongo ObjectId)"
+        }
+      ],
+      "get": {
+        "tags": ["Study Groups"],
+        "summary": "Get study group by ID",
+        "responses": {
+          "200": {
+            "description": "Study group details retrieved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StudyGroup" }
+              }
+            }
+          },
+          "404": { "description": "Study group not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      },
+      "put": {
+        "tags": ["Study Groups"],
+        "summary": "Update study group by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StudyGroupUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Study group updated successfully (No Content)" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Study group not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Study Groups"],
+        "summary": "Delete study group by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Study group deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Study group not found" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/groups/{id}/join": {
+      "post": {
+        "tags": ["Study Groups"],
+        "summary": "Join a study group (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Study group ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Joined group successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StudyGroup" }
+              }
+            }
+          },
+          "400": { "description": "Already a member" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Study group not found" }
+        }
+      }
+    },
+    "/groups/{id}/leave": {
+      "post": {
+        "tags": ["Study Groups"],
+        "summary": "Leave a study group (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Study group ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Left group successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StudyGroup" }
+              }
+            }
+          },
+          "400": { "description": "Not a member / Owner cannot leave" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Study group not found" }
+        }
+      }
+    },
+    "/sessions": {
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get all sessions",
+        "responses": {
+          "200": {
+            "description": "List of sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Session" }
+                }
+              }
+            }
+          },
+          "500": { "description": "Server error" }
+        }
+      },
+      "post": {
+        "tags": ["Sessions"],
+        "summary": "Create a new session (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SessionCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Missing required fields" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/sessions/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "description": "Session ID (Mongo ObjectId)"
+        }
+      ],
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get session by ID",
+        "responses": {
+          "200": {
+            "description": "Session details retrieved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "404": { "description": "Session not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      },
+      "put": {
+        "tags": ["Sessions"],
+        "summary": "Update session by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SessionUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Session updated successfully (No Content)" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Session not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Sessions"],
+        "summary": "Delete session by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Session deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Session not found" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/sessions/group/{groupId}": {
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get sessions by group",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Study group ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of sessions for the group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Session" }
+                }
+              }
+            }
+          },
+          "404": { "description": "Study group not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      }
+    },
+    "/resources": {
+      "get": {
+        "tags": ["Resources"],
+        "summary": "Get all resources",
+        "responses": {
+          "200": {
+            "description": "List of resources retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Resource" }
+                }
+              }
+            }
+          },
+          "500": { "description": "Server error" }
+        }
+      },
+      "post": {
+        "tags": ["Resources"],
+        "summary": "Create a new resource (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResourceCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Resource created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Resource" }
+              }
+            }
+          },
+          "400": { "description": "Bad Request / Missing required fields" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/resources/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "description": "Resource ID (Mongo ObjectId)"
+        }
+      ],
+      "get": {
+        "tags": ["Resources"],
+        "summary": "Get resource by ID",
+        "responses": {
+          "200": {
+            "description": "Resource details retrieved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Resource" }
+              }
+            }
+          },
+          "404": { "description": "Resource not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      },
+      "put": {
+        "tags": ["Resources"],
+        "summary": "Update resource by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResourceUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Resource updated successfully (No Content)" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Resource not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Resources"],
+        "summary": "Delete resource by ID (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Resource deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Resource not found" },
+          "500": { "description": "Server error" }
+        }
+      }
+    },
+    "/resources/group/{groupId}": {
+      "get": {
+        "tags": ["Resources"],
+        "summary": "Get resources by group",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Study group ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of resources for the group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Resource" }
+                }
+              }
+            }
+          },
+          "404": { "description": "Study group not found" },
+          "500": { "description": "Server error / Invalid ID format" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Paste the JWT returned from /auth/login or /auth/register."
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "firstName": { "type": "string", "example": "John" },
+          "lastName": { "type": "string", "example": "Doe" },
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "role": { "type": "string", "enum": ["student", "tutor", "admin"], "example": "student" },
+          "major": { "type": "string", "example": "Computer Science" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserCreate": {
+        "type": "object",
+        "required": ["firstName", "lastName", "email", "password", "major"],
+        "properties": {
+          "firstName": { "type": "string", "example": "John" },
+          "lastName": { "type": "string", "example": "Doe" },
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "password": { "type": "string", "format": "password", "example": "secret123" },
+          "role": { "type": "string", "enum": ["student", "tutor", "admin"], "example": "student" },
+          "major": { "type": "string", "example": "Computer Science" }
+        }
+      },
+      "UserUpdate": {
+        "type": "object",
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" },
+          "role": { "type": "string", "enum": ["student", "tutor", "admin"] },
+          "major": { "type": "string" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "password": { "type": "string", "format": "password", "example": "secret123" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+          "user": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "StudyGroup": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "name": { "type": "string", "example": "CSE 341 Group 1" },
+          "course": { "type": "string", "example": "CSE 341" },
+          "description": { "type": "string", "example": "Web Services study team" },
+          "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "members": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StudyGroupCreate": {
+        "type": "object",
+        "required": ["name", "course", "description", "ownerId"],
+        "properties": {
+          "name": { "type": "string", "example": "CSE 341 Group 1" },
+          "course": { "type": "string", "example": "CSE 341" },
+          "description": { "type": "string", "example": "Web Services study team" },
+          "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "members": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "StudyGroupUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "course": { "type": "string" },
+          "description": { "type": "string" },
+          "members": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "date": { "type": "string", "format": "date-time" },
+          "location": { "type": "string", "example": "Library Room 204" },
+          "topic": { "type": "string", "example": "REST API design" },
+          "description": { "type": "string", "example": "Review Express routing and middleware" },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "SessionCreate": {
+        "type": "object",
+        "required": ["groupId", "date", "location", "topic"],
+        "properties": {
+          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "date": { "type": "string", "format": "date-time" },
+          "location": { "type": "string", "example": "Library Room 204" },
+          "topic": { "type": "string", "example": "REST API design" },
+          "description": { "type": "string", "example": "Review Express routing and middleware" },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "SessionUpdate": {
+        "type": "object",
+        "properties": {
+          "date": { "type": "string", "format": "date-time" },
+          "location": { "type": "string" },
+          "topic": { "type": "string" },
+          "description": { "type": "string" },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "Resource": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "title": { "type": "string", "example": "Express Routing Guide" },
+          "url": { "type": "string", "format": "uri", "example": "https://expressjs.com/en/guide/routing.html" },
+          "type": { "type": "string", "enum": ["pdf", "video", "link"], "example": "link" },
+          "description": { "type": "string", "example": "Official Express routing documentation" },
+          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "uploadedBy": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ResourceCreate": {
+        "type": "object",
+        "required": ["title", "url", "type", "groupId"],
+        "properties": {
+          "title": { "type": "string", "example": "Express Routing Guide" },
+          "url": { "type": "string", "format": "uri", "example": "https://expressjs.com/en/guide/routing.html" },
+          "type": { "type": "string", "enum": ["pdf", "video", "link"], "example": "link" },
+          "description": { "type": "string", "example": "Official Express routing documentation" },
+          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" }
+        }
+      },
+      "ResourceUpdate": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "type": { "type": "string", "enum": ["pdf", "video", "link"] },
+          "description": { "type": "string" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Resource not found" }
+        }
+      }
+    }
+  }
+}
