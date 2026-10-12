@@ -61,6 +61,18 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+if (require.main === module) {
+    const PORT = process.env.PORT || 8080;
+
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+module.exports = app;
+
+
+// app.listen(PORT, () => {
+    // console.log(`Server running on port ${PORT}`);
+// });
