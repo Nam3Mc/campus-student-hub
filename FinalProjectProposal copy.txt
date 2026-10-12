@@ -1,0 +1,218 @@
+CSE 341 Final project Proposal
+General Info
+Dreiser Morales | Charles Isama
+Campus Study Hub API
+
+Contents:
+Contents
+General Info	1
+Application Info	2
+What will the API do?	2
+How will your API utilize a login system?	2
+What database will you use?	2
+How will the data be stored in your database?	2
+How would a frontend be able to manage authentication state based on the data you provide?	2
+What pieces of data in your app will need to be secured? How will you demonstrate web security principles in the development of this app?	2
+What file structure and program architecture will you use for this project (how will you organize your node project)? Why?	2
+What are potential stretch challenges that you could implement to go above and beyond?	2
+API Endpoint Planning	2
+Project Scheduling and Delegation	3
+How will you divide up work in your team to ensure the following tasks all get completed?	3
+Potential Risks and Risk Mitigation Techniques	4
+What are the risks involved with you being able to finish this project in a timely manner?	4
+How will you mitigate or overcome these risks?	4
+Application Info
+What will the API do?
+Campus Study Hub is a RESTful API that helps university students organize and manage study groups, schedule study sessions, share learning resources, and coordinate with classmates. The API will allow users to create and join study groups for specific courses, schedule sessions with location and topic details, upload and share study resources (links, documents, videos), and manage their user profiles. This solves a real problem for students who struggle to find study partners and organize collaborative learning opportunities.
+How will your API utilize a login system?
+The API will use JWT (JSON Web Tokens) for authentication. Users will register with an email and password. Upon successful registration or login, the server will issue a signed JWT that expires after a set time (e.g., 1 hour). The client stores this token (e.g., in localStorage) and includes it in the Authorization header (Bearer <token>) for protected routes. The server verifies the token on each request using a secret key. Passwords are hashed with bcrypt before being stored in MongoDB.
+What database will you use?
+We will use MongoDB Atlas (cloud-hosted NoSQL database). MongoDB integrates seamlessly with Node.js and Mongoose, and its flexible document structure works well for nested data. The free tier is perfect for student projects.
+How will the data be stored in your database?
+We will use four collections with Mongoose schemas:
+
+1. users (7+ fields):
+{
+  _id: ObjectId,
+  firstName: String,
+  lastName: String,
+  email: String (unique),
+  password: String (hashed),
+  role: String (student/tutor/admin),
+  major: String,
+  createdAt: Date
+}
+2. studygroups
+{
+  _id: ObjectId,
+  name: String,
+  course: String,
+  description: String,
+  ownerId: ObjectId (ref: users),
+  members: [ObjectId] (ref: users),
+  createdAt: Date
+}
+3. sessions
+{
+  _id: ObjectId,
+  groupId: ObjectId (ref: studygroups),
+  date: Date,
+  location: String,
+  topic: String,
+  description: String,
+  attendees: [ObjectId] (ref: users)
+}
+4. resources
+{
+  _id: ObjectId,
+  title: String,
+  url: String,
+  type: String (pdf/video/link),
+  description: String,
+  groupId: ObjectId (ref: studygroups),
+  uploadedBy: ObjectId (ref: users),
+  createdAt: Date
+}
+How would a frontend be able to manage authentication state based on the data you provide?
+After login or registration, the API returns a JWT. The frontend stores this token (e.g., in localStorage or a secure cookie). For subsequent requests to protected routes, the frontend includes the token in the Authorization header. The frontend can decode the token (without verifying the signature) to read the user's ID and role, or call a /auth/status endpoint to get the current user's profile. To log out, the frontend simply discards the token.
+What pieces of data in your app will need to be secured? How will you demonstrate web security principles in the development of this app?
+Data requiring security:
+•	User passwords — hashed with bcrypt
+•	JWT secret key — stored in environment variables
+•	User email addresses — only visible to authenticated users
+•	Personal user data — protected by JWT middleware
+Security principles demonstrated:
+1.	Authentication: JWT with signed tokens
+2.	Authorization: Only group owners can delete/modify their groups
+3.	Input validation: express-validator on all POST/PUT routes
+4.	Password hashing: bcrypt
+5.	Environment variables: JWT secret and MongoDB URI in .env
+6.	HTTPS: Render provides SSL by default
+7.	CORS: Configured to allow only trusted origins
+What file structure and program architecture will you use for this project (how will you organize your node project)?
+ Why?
+•	Separation of concerns: Routes, controllers, and models are separate
+•	Scalability: Easy to add new features
+•	Testability: Unit tests are organized by feature
+•	Maintainability: Clear organization helps team collaboration
+What are potential stretch challenges that you could implement to go above and beyond?
+1.	Real-time notifications: Use Socket.io to notify group members of new sessions
+2.	File uploads: Allow users to upload actual files using Multer
+3.	Search functionality: Full-text search for groups and resources
+4.	Pagination: Implement pagination for large result sets
+5.	Rate limiting: Prevent abuse with express-rate-limit
+6.	Email notifications: Send session reminders via Nodemailer
+7.	Advanced filtering: Filter groups by course, availability, location
+API Endpoint Planning
+users
+•	GET /users — Get all users
+•	GET /users/:id — Get single user
+•	POST /users — Create new user (admin only, optional)
+•	PUT /users/:id — Update user (protected)
+•	DELETE /users/:id — Delete user (protected)
+auth
+•	POST /auth/register — Register new user
+•	POST /auth/login — Login and receive JWT
+•	GET /auth/status — Check login status (protected)
+•	GET /auth/logout — Log out (client-side token discard, optional endpoint)
+studygroups
+•	GET /groups — Get all study groups
+•	GET /groups/:id — Get single group
+•	POST /groups — Create new group (protected)
+•	PUT /groups/:id — Update group (protected)
+•	DELETE /groups/:id — Delete group (protected)
+•	POST /groups/:id/join — Join a group (protected)
+•	POST /groups/:id/leave — Leave a group (protected)
+sessions
+•	GET /sessions — Get all sessions
+•	GET /sessions/:id — Get single session
+•	GET /sessions/group/:groupId — Get sessions by group
+•	POST /sessions — Create new session (protected)
+•	PUT /sessions/:id — Update session (protected)
+•	DELETE /sessions/:id — Delete session (protected)
+resources
+•	GET /resources — Get all resources
+•	GET /resources/:id — Get single resource
+•	GET /resources/group/:groupId — Get resources by group
+•	POST /resources — Create new resource (protected)
+•	PUT /resources/:id — Update resource (protected)
+•	DELETE /resources/:id — Delete resource (protected)
+Project Scheduling and Delegation
+Plan out what tasks will get completed with each lesson remaining in the semester (Only edit highlighted text).
+Week 04 Tasks	Project Proposal
+Week 05 Tasks	●	Create Git Repo
+●	Push to Render
+●	API DOCUMENTATION complete and available at route /api-docs
+●	Set up MongoDB Atlas cluster
+●	Create Mongoose models for all 4 collections
+●	Implement GET routes (all and single) for all collections
+●	Implement POST routes with validation
+●	Set up JWT authentication (register, login, middleware)
+Week 06 Tasks	•	Implement PUT routes for all collections
+•	Implement DELETE routes for all collections
+•	Add authentication middleware to protect routes
+•	Write unit tests for all GET routes
+•	Complete Swagger documentation for all endpoints
+
+Week 07 Tasks	•	Final testing of all routes
+•	Bug fixes and refinement
+•	Video Presentation (all team members)
+•	Final submission
+
+How will you divide up work in your team to ensure the following tasks all get completed?
+Task	Assigned To
+Node.js project creation	Dreiser Morales
+Create git repo and share with group	Dreiser Morales
+MongoDB setup	Charles Isama
+JWT authentication setup	Dreiser Morales
+Google OAuth setup (login/logout)	Dreiser Morales
+HTTP GET (all, single) — Users	Charles Isama
+HTTP GET (all, single) — Categories	Dreiser Morales
+HTTP GET (all, single) — Accounts	Charles Isama
+HTTP GET (all, single) — Transactions	Dreiser Morales
+HTTP POST — Users	Charles Isama
+HTTP POST — Categories	Dreiser Morales
+HTTP POST — Accounts	Charles Isama
+HTTP POST — Transactions	Dreiser Morales
+HTTP PUT — Users	Charles Isama
+HTTP PUT — Categories	Dreiser Morales
+HTTP PUT — Accounts	Charles Isama
+HTTP PUT — Transactions	Dreiser Morales
+HTTP DELETE — Users	Charles Isama
+HTTP DELETE — Categories	Dreiser Morales
+HTTP DELETE — Accounts	Charles Isama
+HTTP DELETE — Transactions	Dreiser Morales
+API Swagger documentation — Users & Categories	Charles Isama
+API Swagger documentation — Accounts & Transactions	Dreiser Morales
+API Swagger documentation — Auth routes (JWT + OAuth)	Dreiser Morales
+Unit tests for GET routes — Users & Accounts	Charles Isama
+Unit tests for GET routes — Categories & Transactions	Dreiser Morales
+Vercel deployment	Dreiser Morales
+README / documentation	Charles Isama
+Video presentation	Dreiser Morales & Charles Isama
+
+Potential Risks and Risk Mitigation Techniques
+What are the risks involved with you being able to finish this project in a timely manner?
+1.	JWT implementation and security — Ensuring tokens are signed and verified correctly
+2.	Team member unavailability — Sickness, work, or personal emergencies
+3.	Deployment issues — Render deployment may have unexpected errors
+4.	MongoDB connection problems — Network or configuration issues
+5.	Swagger documentation time — Documenting all routes takes longer than expected
+6.	Testing challenges — Writing tests for protected routes is complex
+7.	Merge conflicts — Multiple people editing the same files
+8.	Time zone differences — Team members in different time zones
+
+How will you mitigate or overcome these risks?
+Risk	Mitigation
+JWT implementation	Assign one person to focus on JWT in Week 05; use jsonwebtoken and bcrypt documentation
+Team unavailability	Cross-train on each other's code; document everything in README
+Deployment issues	Deploy early (Week 05); test locally before pushing
+MongoDB problems	Use MongoDB Atlas free tier; test connection early
+Swagger time	Document routes as you build them, not at the end
+Testing challenges	Use Supertest; mock JWT for tests
+Merge conflicts	Use feature branches; communicate before editing shared files
+Time zones	Set clear deadlines; use async communication (WhatsApp, GitHub)
+Falling behind	Weekly check-ins; adjust task assignments as needed
+
+
+

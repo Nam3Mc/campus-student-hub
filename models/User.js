@@ -8,11 +8,6 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: { type: String, enum: ['student', 'tutor', 'admin'], default: 'student' },
     major: { type: String, required: true },
-    provider: {                                         // ← moved INSIDE
-        type: String,
-        enum: ['local', 'google'],
-        default: 'local',                               // ← fixed typo
-    },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -33,5 +28,6 @@ userSchema.methods.toJSON = function () {
   delete obj.__v;
   return obj;
 };
+
 
 module.exports = mongoose.model('User', userSchema, 'users');
