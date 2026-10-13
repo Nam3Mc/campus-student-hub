@@ -27,6 +27,11 @@ function isMember(group, userId) {
   );
 }
 
+function isOwner(group, userId) {
+  const ownerId = group?.ownerId?._id ?? group?.ownerId;
+  return ownerId?.toString().trim() === userId?.toString().trim();
+}
+
 // ---------- Read ----------
 
 // GET all sessions
@@ -86,7 +91,7 @@ exports.createSession = async (data, userId) => {
     location,
     topic,
     description,
-    attendees: [...attendees, userId], 
+    attendees: [ userId, ...attendees], 
   });
 
   // Return fully populated session
@@ -114,13 +119,13 @@ exports.updateSession = async (id, data, userId) => {
     throw new ForbiddenError('You are not allowed to update this session');
   }
 
-  const allowed = ['date', 'location', 'topic', 'description'];
+  const allowed = ['location', 'topic', 'description'];
   for (const key of allowed) {
     if (data[key] !== undefined) session[key] = data[key];
   }
 
   if (data.date !== undefined) {
-    const when = new Date(session.date);
+    const when = new Date(data.date);
     if (Number.isNaN(when.getTime())) {
       throw new BadRequestError('Invalid date format');
     }
