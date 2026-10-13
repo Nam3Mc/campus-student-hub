@@ -1,4 +1,14 @@
 const Resource = require('../models/Resource');
+const mongoose = require('mongoose');
+const StudyGroup = require('../models/StudyGroup');
+
+class NotFoundError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'NotFoundError';
+    this.status = 404;
+  }
+}
 
 // GET all Resources
 exports.getResources = async () => {

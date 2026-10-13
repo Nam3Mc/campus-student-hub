@@ -11,8 +11,10 @@ const swaggerDocument = require('./swagger/swagger.json');
 
 dotenv.config();
 
-// Connect to MongoDB
-connectDB();
+// Skip real DB connect during tests (mongodb-memory-server handles it)
+if (process.env.NODE_ENV !== 'test') {
+    connectDB();
+}
 
 // Register the Google strategy after loading environment variables
 require('./config/passport');
@@ -28,30 +30,34 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
-app.use(
-    session({
-        secret: process.env.SESSION_SECRET || 'change-me-in-prod',
-        resave: false,
-        saveUninitialized: false,
-        store: MongoStore.create({
-            mongoUrl: process.env.MONGODB_URI,
-            collectionName: 'sessions',
-            ttl: 60 * 60 * 24,
-        }),
-        cookie: {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 1000 * 60 * 60 * 24,
-        },
-    })
-);
+// ----- Session config -----
+const sessionConfig = {
+    secret: process.env.SESSION_SECRET || 'change-me-in-prod',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 1000 * 60 * 60 * 24, // 1 day
+    },
+};
+
+// Only attach the Mongo-backed store outside tests
+if (process.env.NODE_ENV !== 'test') {
+    sessionConfig.store = MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        collectionName: 'sessions',
+        ttl: 60 * 60 * 24, // 1 day
+    });
+}
+
+app.use(session(sessionConfig));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ----- Swagger -----
+// ----- Swagger (CDN-based, works on Vercel) -----
 
 // 1) Expose the OpenAPI JSON
 app.get('/docs.json', (req, res) => {
