@@ -1,5 +1,6 @@
 const express = require('express');
 const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const authController = require('../controllers/auth');
 const { auth } = require('../middleware/auth');
@@ -23,16 +24,26 @@ router.get(
   '/google/callback',
   passport.authenticate('google', {
     failureRedirect: '/auth/google/failure',
-    session: true, // keep session for OAuth flow
+    session: true,
   }),
   (req, res) => {
-    // Option A: redirect to a frontend URL (if CLIENT_URL is set)
+    // 1. Genera el JWT — exactamente igual que en /auth/login
+    const token = jwt.sign(
+      { id: req.user._id, role: req.user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    // 2. Redirige al frontend pasando el token en el hash
+    //    (los hashes no viajan al servidor, así el token no queda en logs)
     if (process.env.CLIENT_URL) {
-      return res.redirect(`${process.env.CLIENT_URL}/api-docs`);
+      return res.redirect(`${process.env.CLIENT_URL}/api-docs#token=${token}`);
     }
-    // Option B: return JSON (for API-only clients)
+
+    // 3. Fallback JSON si no hay CLIENT_URL
     return res.json({
       message: 'Login successful',
+      token,
       user: {
         id: req.user._id,
         email: req.user.email,

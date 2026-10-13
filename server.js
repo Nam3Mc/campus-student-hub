@@ -66,6 +66,7 @@ app.get('/docs.json', (req, res) => {
 });
 
 // 2) Serve the Swagger UI HTML that loads assets from a CDN
+//    Auto-authorizes from #token=... if redirected back from Google OAuth.
 app.get('/api-docs', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(`<!DOCTYPE html>
@@ -86,15 +87,29 @@ app.get('/api-docs', (req, res) => {
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = function () {
-      window.ui = SwaggerUIBundle({
+      // Read #token=... from the URL hash (set by /auth/google/callback)
+      const hash = window.location.hash || '';
+      const match = hash.match(/token=([^&]+)/);
+      const token = match ? decodeURIComponent(match[1]) : null;
+
+      const ui = SwaggerUIBundle({
         url: '/docs.json',
         dom_id: '#swagger-ui',
         presets: [
           SwaggerUIBundle.presets.apis,
           SwaggerUIStandalonePreset
         ],
-        layout: 'StandaloneLayout'
+        layout: 'StandaloneLayout',
+        onComplete: function () {
+          if (token) {
+            // Auto-populate the "Authorize" dialog with the JWT
+            ui.preauthorizeApiKey('bearerAuth', token);
+            // Strip the hash so the token doesn't linger in the address bar
+            history.replaceState(null, '', window.location.pathname);
+          }
+        }
       });
+      window.ui = ui;
     };
   </script>
 </body>

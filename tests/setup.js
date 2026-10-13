@@ -1,4 +1,3 @@
-// tests/setup.js
 process.env.NODE_ENV = 'test';
 
 const path = require('path');
