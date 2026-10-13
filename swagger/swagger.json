@@ -3,7 +3,7 @@
   "info": {
     "title": "Campus Study Hub API",
     "version": "2.0.0",
-    "description": "API for managing users, authentication, study groups, sessions, and resources. Supports both local JWT auth and Google OAuth 2.0."
+    "description": "API for managing users, authentication, study groups, sessions, and resources. Supports both local JWT auth and Google OAuth 2.0. All POST and PUT endpoints validate their request bodies and return 400 on failure."
   },
   "servers": [
     { "url": "http://localhost:8080", "description": "Local server" },
@@ -38,13 +38,21 @@
       },
       "post": {
         "tags": ["Users"],
-        "summary": "Create a new user (admin only)",
+        "summary": "Create a new user (protected)",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserCreate" }
+              "schema": { "$ref": "#/components/schemas/UserCreate" },
+              "example": {
+                "firstName": "John",
+                "lastName": "Doe",
+                "email": "john@example.com",
+                "password": "secret123",
+                "role": "student",
+                "major": "Computer Science"
+              }
             }
           }
         },
@@ -57,9 +65,17 @@
               }
             }
           },
-          "400": { "description": "Bad Request / Missing required fields" },
+          "400": {
+            "description": "Bad Request — missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "firstName is required", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden - admin only" }
+          "409": { "description": "Email already registered" }
         }
       }
     },
@@ -69,7 +85,7 @@
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "string" },
+          "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
           "description": "User ID (Mongo ObjectId)"
         }
       ],
@@ -85,8 +101,9 @@
               }
             }
           },
+          "400": { "description": "Invalid ID format" },
           "404": { "description": "User not found" },
-          "500": { "description": "Server error / Invalid ID format" }
+          "500": { "description": "Server error" }
         }
       },
       "put": {
@@ -97,15 +114,25 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+              "schema": { "$ref": "#/components/schemas/UserUpdate" },
+              "example": { "firstName": "Johnny", "major": "Software Engineering" }
             }
           }
         },
         "responses": {
           "204": { "description": "User updated successfully (No Content)" },
-          "400": { "description": "Bad request" },
+          "400": {
+            "description": "Bad Request — invalid or empty field",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "A valid email is required", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" },
-          "404": { "description": "User not found" }
+          "404": { "description": "User not found" },
+          "409": { "description": "Email already registered" }
         }
       },
       "delete": {
@@ -120,6 +147,7 @@
         }
       }
     },
+
     "/auth/register": {
       "post": {
         "tags": ["Auth"],
@@ -201,12 +229,11 @@
         }
       }
     },
-
     "/auth/google": {
       "get": {
         "tags": ["Auth"],
         "summary": "Start Google OAuth 2.0 login",
-        "description": "Initiates the Google OAuth 2.0 flow. Redirects the browser to Google's consent screen. Open this URL directly in a browser (not via fetch/XHR) so that the redirect chain and session cookie work correctly.",
+        "description": "Initiates the Google OAuth 2.0 flow. Redirects the browser to Google's consent screen. Open this URL directly in a browser (not via fetch/XHR) so the redirect chain and session cookie work correctly.",
         "responses": {
           "302": {
             "description": "Redirect to Google's OAuth consent screen",
@@ -228,7 +255,7 @@
       "get": {
         "tags": ["Auth"],
         "summary": "Google OAuth 2.0 callback",
-        "description": "Google redirects here after the user consents. On success, the server either (a) redirects to `CLIENT_URL` if it is configured, or (b) returns a JSON payload containing the authenticated user (and optionally a JWT). On failure, the user is redirected to `/auth/google/failure`.",
+        "description": "Google redirects here after the user consents. On success, the server either (a) redirects to `CLIENT_URL` if it is configured, or (b) returns a JSON payload containing the authenticated user.",
         "parameters": [
           {
             "name": "code",
@@ -274,7 +301,6 @@
       "get": {
         "tags": ["Auth"],
         "summary": "Google OAuth failure handler",
-        "description": "Returned when the Google OAuth flow fails (user denied, invalid code, or account linking error).",
         "responses": {
           "401": {
             "description": "Google authentication failed",
@@ -315,7 +341,14 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/StudyGroupCreate" }
+              "schema": { "$ref": "#/components/schemas/StudyGroupCreate" },
+              "example": {
+                "name": "CSE 341 Group 1",
+                "course": "CSE 341",
+                "description": "Web Services study team",
+                "ownerId": "650c1f1e2f3a4b5c6d7e8f90",
+                "members": ["650c1f1e2f3a4b5c6d7e8f90"]
+              }
             }
           }
         },
@@ -328,7 +361,15 @@
               }
             }
           },
-          "400": { "description": "Bad Request / Missing required fields" },
+          "400": {
+            "description": "Bad Request — missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "ownerId must be a valid ObjectId", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" }
         }
       }
@@ -339,7 +380,7 @@
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "string" },
+          "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
           "description": "Study group ID (Mongo ObjectId)"
         }
       ],
@@ -355,8 +396,9 @@
               }
             }
           },
+          "400": { "description": "Invalid ID format" },
           "404": { "description": "Study group not found" },
-          "500": { "description": "Server error / Invalid ID format" }
+          "500": { "description": "Server error" }
         }
       },
       "put": {
@@ -367,14 +409,24 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/StudyGroupUpdate" }
+              "schema": { "$ref": "#/components/schemas/StudyGroupUpdate" },
+              "example": { "description": "Updated description" }
             }
           }
         },
         "responses": {
           "204": { "description": "Study group updated successfully (No Content)" },
-          "400": { "description": "Bad request" },
+          "400": {
+            "description": "Bad Request — invalid or empty field",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "name cannot be empty", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — not the group owner" },
           "404": { "description": "Study group not found" }
         }
       },
@@ -385,6 +437,7 @@
         "responses": {
           "200": { "description": "Study group deleted successfully" },
           "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — not the group owner" },
           "404": { "description": "Study group not found" },
           "500": { "description": "Server error" }
         }
@@ -400,7 +453,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
             "description": "Study group ID (Mongo ObjectId)"
           }
         ],
@@ -429,7 +482,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
             "description": "Study group ID (Mongo ObjectId)"
           }
         ],
@@ -448,6 +501,7 @@
         }
       }
     },
+
     "/sessions": {
       "get": {
         "tags": ["Sessions"],
@@ -475,7 +529,15 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SessionCreate" }
+              "schema": { "$ref": "#/components/schemas/SessionCreate" },
+              "example": {
+                "groupId": "650c1f1e2f3a4b5c6d7e8f90",
+                "date": "2025-11-10T18:00:00.000Z",
+                "location": "Library Room 204",
+                "topic": "REST API design",
+                "description": "Review Express routing and middleware",
+                "attendees": []
+              }
             }
           }
         },
@@ -488,7 +550,15 @@
               }
             }
           },
-          "400": { "description": "Bad Request / Missing required fields" },
+          "400": {
+            "description": "Bad Request — missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "date must be a valid ISO date", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" }
         }
       }
@@ -499,7 +569,7 @@
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "string" },
+          "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
           "description": "Session ID (Mongo ObjectId)"
         }
       ],
@@ -515,8 +585,9 @@
               }
             }
           },
+          "400": { "description": "Invalid ID format" },
           "404": { "description": "Session not found" },
-          "500": { "description": "Server error / Invalid ID format" }
+          "500": { "description": "Server error" }
         }
       },
       "put": {
@@ -527,13 +598,22 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SessionUpdate" }
+              "schema": { "$ref": "#/components/schemas/SessionUpdate" },
+              "example": { "location": "Library Room 305", "topic": "Advanced routing" }
             }
           }
         },
         "responses": {
           "204": { "description": "Session updated successfully (No Content)" },
-          "400": { "description": "Bad request" },
+          "400": {
+            "description": "Bad Request — invalid or empty field",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "location cannot be empty", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" },
           "404": { "description": "Session not found" }
         }
@@ -559,7 +639,7 @@
             "name": "groupId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
             "description": "Study group ID (Mongo ObjectId)"
           }
         ],
@@ -580,6 +660,65 @@
         }
       }
     },
+    "/sessions/{id}/join": {
+      "post": {
+        "tags": ["Sessions"],
+        "summary": "Join a study session (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
+            "description": "Session ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Joined session successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "400": { "description": "Already an attendee" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Session not found" }
+        }
+      }
+    },
+    "/sessions/{id}/leave": {
+      "post": {
+        "tags": ["Sessions"],
+        "summary": "Leave a study session (protected)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
+            "description": "Session ID (Mongo ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Left session successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "400": { "description": "Not an attendee" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Session not found" }
+        }
+      }
+    },
+
     "/resources": {
       "get": {
         "tags": ["Resources"],
@@ -607,7 +746,14 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ResourceCreate" }
+              "schema": { "$ref": "#/components/schemas/ResourceCreate" },
+              "example": {
+                "title": "Express Routing Guide",
+                "url": "https://expressjs.com/en/guide/routing.html",
+                "type": "link",
+                "description": "Official Express routing documentation",
+                "groupId": "650c1f1e2f3a4b5c6d7e8f90"
+              }
             }
           }
         },
@@ -620,7 +766,15 @@
               }
             }
           },
-          "400": { "description": "Bad Request / Missing required fields" },
+          "400": {
+            "description": "Bad Request — missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "type must be pdf, video, or link", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" }
         }
       }
@@ -631,7 +785,7 @@
           "name": "id",
           "in": "path",
           "required": true,
-          "schema": { "type": "string" },
+          "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
           "description": "Resource ID (Mongo ObjectId)"
         }
       ],
@@ -647,8 +801,9 @@
               }
             }
           },
+          "400": { "description": "Invalid ID format" },
           "404": { "description": "Resource not found" },
-          "500": { "description": "Server error / Invalid ID format" }
+          "500": { "description": "Server error" }
         }
       },
       "put": {
@@ -659,14 +814,24 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ResourceUpdate" }
+              "schema": { "$ref": "#/components/schemas/ResourceUpdate" },
+              "example": { "title": "Updated Guide", "type": "pdf" }
             }
           }
         },
         "responses": {
           "204": { "description": "Resource updated successfully (No Content)" },
-          "400": { "description": "Bad request" },
+          "400": {
+            "description": "Bad Request — invalid or empty field",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "url must be a valid URL", "type": "BadRequestError" }
+              }
+            }
+          },
           "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — not the uploader" },
           "404": { "description": "Resource not found" }
         }
       },
@@ -677,6 +842,7 @@
         "responses": {
           "200": { "description": "Resource deleted successfully" },
           "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden — not the uploader" },
           "404": { "description": "Resource not found" },
           "500": { "description": "Server error" }
         }
@@ -691,7 +857,7 @@
             "name": "groupId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
             "description": "Study group ID (Mongo ObjectId)"
           }
         ],
@@ -751,23 +917,52 @@
         "type": "object",
         "required": ["firstName", "lastName", "email", "password", "major"],
         "properties": {
-          "firstName": { "type": "string", "example": "John" },
-          "lastName": { "type": "string", "example": "Doe" },
-          "email": { "type": "string", "format": "email", "example": "john@example.com" },
-          "password": { "type": "string", "format": "password", "example": "secret123" },
-          "role": { "type": "string", "enum": ["student", "tutor", "admin"], "example": "student" },
-          "major": { "type": "string", "example": "Computer Science" }
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 6,
+            "example": "secret123"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["student", "tutor", "admin"],
+            "default": "student"
+          },
+          "major": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Computer Science"
+          }
         }
       },
       "UserUpdate": {
         "type": "object",
+        "minProperties": 1,
+        "description": "At least one field must be provided.",
         "properties": {
-          "firstName": { "type": "string" },
-          "lastName": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "format": "password" },
-          "role": { "type": "string", "enum": ["student", "tutor", "admin"] },
-          "major": { "type": "string" }
+          "firstName": { "type": "string", "minLength": 1, "maxLength": 50 },
+          "lastName":  { "type": "string", "minLength": 1, "maxLength": 50 },
+          "email":     { "type": "string", "format": "email" },
+          "password":  { "type": "string", "format": "password", "minLength": 6 },
+          "role":      { "type": "string", "enum": ["student", "tutor", "admin"] },
+          "major":     { "type": "string", "minLength": 1 }
         }
       },
       "LoginRequest": {
@@ -805,8 +1000,22 @@
           "name": { "type": "string", "example": "CSE 341 Group 1" },
           "course": { "type": "string", "example": "CSE 341" },
           "description": { "type": "string", "example": "Web Services study team" },
-          "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
-          "members": { "type": "array", "items": { "type": "string" } },
+          "ownerId": {
+            "oneOf": [
+              { "type": "string", "pattern": "^[a-f\\d]{24}$" },
+              { "$ref": "#/components/schemas/User" }
+            ],
+            "description": "Either an ObjectId string or a populated User object."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "type": "string", "pattern": "^[a-f\\d]{24}$" },
+                { "$ref": "#/components/schemas/User" }
+              ]
+            }
+          },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -814,20 +1023,47 @@
         "type": "object",
         "required": ["name", "course", "description", "ownerId"],
         "properties": {
-          "name": { "type": "string", "example": "CSE 341 Group 1" },
-          "course": { "type": "string", "example": "CSE 341" },
-          "description": { "type": "string", "example": "Web Services study team" },
-          "ownerId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
-          "members": { "type": "array", "items": { "type": "string" } }
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "CSE 341 Group 1"
+          },
+          "course": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "example": "CSE 341"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "example": "Web Services study team"
+          },
+          "ownerId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$",
+            "example": "650c1f1e2f3a4b5c6d7e8f90"
+          },
+          "members": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-f\\d]{24}$" }
+          }
         }
       },
       "StudyGroupUpdate": {
         "type": "object",
+        "minProperties": 1,
+        "description": "At least one field must be provided.",
         "properties": {
-          "name": { "type": "string" },
-          "course": { "type": "string" },
-          "description": { "type": "string" },
-          "members": { "type": "array", "items": { "type": "string" } }
+          "name":        { "type": "string", "minLength": 1, "maxLength": 100 },
+          "course":      { "type": "string", "minLength": 1, "maxLength": 50 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "members": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-f\\d]{24}$" }
+          }
         }
       },
       "Session": {
@@ -839,29 +1075,62 @@
           "location": { "type": "string", "example": "Library Room 204" },
           "topic": { "type": "string", "example": "REST API design" },
           "description": { "type": "string", "example": "Review Express routing and middleware" },
-          "attendees": { "type": "array", "items": { "type": "string" } }
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-f\\d]{24}$" }
+          }
         }
       },
       "SessionCreate": {
         "type": "object",
         "required": ["groupId", "date", "location", "topic"],
         "properties": {
-          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
-          "date": { "type": "string", "format": "date-time" },
-          "location": { "type": "string", "example": "Library Room 204" },
-          "topic": { "type": "string", "example": "REST API design" },
-          "description": { "type": "string", "example": "Review Express routing and middleware" },
-          "attendees": { "type": "array", "items": { "type": "string" } }
+          "groupId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$",
+            "example": "650c1f1e2f3a4b5c6d7e8f90"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-11-10T18:00:00.000Z"
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Library Room 204"
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "REST API design"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Review Express routing and middleware"
+          },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-f\\d]{24}$" }
+          }
         }
       },
       "SessionUpdate": {
         "type": "object",
+        "minProperties": 1,
+        "description": "At least one field must be provided.",
         "properties": {
-          "date": { "type": "string", "format": "date-time" },
-          "location": { "type": "string" },
-          "topic": { "type": "string" },
-          "description": { "type": "string" },
-          "attendees": { "type": "array", "items": { "type": "string" } }
+          "date":        { "type": "string", "format": "date-time" },
+          "location":    { "type": "string", "minLength": 1, "maxLength": 200 },
+          "topic":       { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "maxLength": 1000 },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-f\\d]{24}$" }
+          }
         }
       },
       "Resource": {
@@ -869,7 +1138,11 @@
         "properties": {
           "_id": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
           "title": { "type": "string", "example": "Express Routing Guide" },
-          "url": { "type": "string", "format": "uri", "example": "https://expressjs.com/en/guide/routing.html" },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://expressjs.com/en/guide/routing.html"
+          },
           "type": { "type": "string", "enum": ["pdf", "video", "link"], "example": "link" },
           "description": { "type": "string", "example": "Official Express routing documentation" },
           "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" },
@@ -881,26 +1154,54 @@
         "type": "object",
         "required": ["title", "url", "type", "groupId"],
         "properties": {
-          "title": { "type": "string", "example": "Express Routing Guide" },
-          "url": { "type": "string", "format": "uri", "example": "https://expressjs.com/en/guide/routing.html" },
-          "type": { "type": "string", "enum": ["pdf", "video", "link"], "example": "link" },
-          "description": { "type": "string", "example": "Official Express routing documentation" },
-          "groupId": { "type": "string", "example": "650c1f1e2f3a4b5c6d7e8f90" }
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Express Routing Guide"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://expressjs.com/en/guide/routing.html"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["pdf", "video", "link"],
+            "example": "link"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Official Express routing documentation"
+          },
+          "groupId": {
+            "type": "string",
+            "pattern": "^[a-f\\d]{24}$",
+            "example": "650c1f1e2f3a4b5c6d7e8f90"
+          }
         }
       },
       "ResourceUpdate": {
         "type": "object",
+        "minProperties": 1,
+        "description": "At least one field must be provided.",
         "properties": {
-          "title": { "type": "string" },
-          "url": { "type": "string", "format": "uri" },
-          "type": { "type": "string", "enum": ["pdf", "video", "link"] },
-          "description": { "type": "string" }
+          "title":       { "type": "string", "minLength": 1, "maxLength": 200 },
+          "url":         { "type": "string", "format": "uri" },
+          "type":        { "type": "string", "enum": ["pdf", "video", "link"] },
+          "description": { "type": "string", "maxLength": 1000 }
         }
       },
       "Error": {
         "type": "object",
         "properties": {
-          "message": { "type": "string", "example": "Resource not found" }
+          "error": { "type": "string", "example": "Resource not found" },
+          "type": {
+            "type": "string",
+            "description": "Error class name, set by the error handler",
+            "example": "NotFoundError"
+          }
         }
       }
     }
