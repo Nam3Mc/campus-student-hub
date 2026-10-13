@@ -1,69 +1,56 @@
-const StudyGroup = require('../models/StudyGroup');
+const studyGroupService = require('../services/group');
 
-// GET all study groups
-exports.getAllGroups = async (req, res) => {
-    try {
-        const groups = await StudyGroup.find().populate('ownerId', 'firstName lastName email');
-        res.status(200).json(groups);
-    } catch (error) {
-        res.status(500).json({ message: 'Error retrieving groups', error: error.message });
-    }
+exports.getAllGroups = async (req, res, next) => {
+  try {
+    const groups = await studyGroupService.getAllGroups();
+    res.status(200).json(groups);
+  } catch (err) {
+    next(err);
+  }
 };
 
-// GET single study group
-exports.getGroupById = async (req, res) => {
-    try {
-        const group = await StudyGroup.findById(req.params.id).populate('ownerId', 'firstName lastName email');
-        if (!group) {
-            return res.status(404).json({ message: 'Study group not found' });
-        }
-        res.status(200).json(group);
-    } catch (error) {
-        res.status(500).json({ message: 'Invalid Group ID or server error', error: error.message });
-    }
+exports.getGroupById = async (req, res, next) => {
+  try {
+    const group = await studyGroupService.getGroupById(req.params.id);
+    res.status(200).json(group);
+  } catch (err) {
+    next(err);
+  }
 };
 
-// POST create study group
-exports.createGroup = async (req, res) => {
-    try {
-        const { name, course, description, ownerId, members } = req.body;
-        if (!name || !course || !description || !ownerId) {
-            return res.status(400).json({ message: 'Please provide all required fields' });
-        }
-        const newGroup = new StudyGroup({ name, course, description, ownerId, members });
-        const savedGroup = await newGroup.save();
-        res.status(201).json(savedGroup);
-    } catch (error) {
-        res.status(400).json({ message: 'Error creating study group', error: error.message });
-    }
+exports.createGroup = async (req, res, next) => {
+  try {
+    const group = await studyGroupService.createGroup(
+      req.body,
+      req.user && req.user.id
+    );
+    res.status(201).json(group);
+  } catch (err) {
+    next(err);
+  }
 };
 
-// PUT update study group
-exports.updateGroup = async (req, res) => {
-    try {
-        const updatedGroup = await StudyGroup.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, runValidators: true }
-        );
-        if (!updatedGroup) {
-            return res.status(404).json({ message: 'Study group not found' });
-        }
-        res.status(204).send();
-    } catch (error) {
-        res.status(400).json({ message: 'Error updating study group', error: error.message });
-    }
+exports.updateGroup = async (req, res, next) => {
+  try {
+    await studyGroupService.updateGroup(
+      req.params.id,
+      req.body,
+      req.user && req.user.id
+    );
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 };
 
-// DELETE study group
-exports.deleteGroup = async (req, res) => {
-    try {
-        const deletedGroup = await StudyGroup.findByIdAndDelete(req.params.id);
-        if (!deletedGroup) {
-            return res.status(404).json({ message: 'Study group not found' });
-        }
-        res.status(200).json({ message: 'Study group deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting study group', error: error.message });
-    }
+exports.deleteGroup = async (req, res, next) => {
+  try {
+    await studyGroupService.deleteGroup(
+      req.params.id,
+      req.user && req.user.id
+    );
+    res.status(200).json({ message: 'Study group deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
 };
