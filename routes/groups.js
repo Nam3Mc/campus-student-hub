@@ -23,4 +23,9 @@ router.put(
 
 router.delete('/:id', auth, groupsController.deleteGroup);
 
+// ---------- Membership ----------
+
+router.post('/:id/join', auth, groupsController.joinGroup);
+router.post('/:id/leave', auth, groupsController.leaveGroup);
+
 module.exports = router;

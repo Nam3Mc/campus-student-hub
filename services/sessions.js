@@ -1,5 +1,6 @@
 const Session = require('../models/Session');
 const StudyGroup = require('../models/StudyGroup');
+const User = require('../models/User');
 const {
   BadRequestError,
   ForbiddenError,
@@ -202,6 +203,52 @@ exports.leaveSession = async (id, userId) => {
     throw new BadRequestError('You are not an attendee of this session');
   }
 
+  await session.save();
+
+  return Session.findById(session._id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
+};
+
+// POST /sessions/:id/members — owner/creator adds another user to attendees
+exports.addMemberToSession = async (id, memberId, userId) => {
+  if (!memberId) {
+    throw new BadRequestError('memberId is required');
+  }
+
+  const session = await Session.findById(id);
+  if (!session) throw new NotFoundError('Session not found');
+
+  const group = await loadGroupOrThrow(session.groupId);
+
+  // Only the group owner OR the session creator (attendees[0]) can add members
+  const creatorId = session.attendees[0];
+  const canAdd =
+    isOwner(group, userId) ||
+    (creatorId && creatorId.toString() === userId.toString());
+
+  if (!canAdd) {
+    throw new ForbiddenError('You are not allowed to add attendees to this session');
+  }
+
+  // Target user must exist
+  const member = await User.findById(memberId);
+  if (!member) throw new NotFoundError('User not found');
+
+  // Target user must be a member of the group
+  if (!isMember(group, memberId)) {
+    throw new BadRequestError('User is not a member of this study group');
+  }
+
+  // Avoid duplicates
+  const already = session.attendees.some(
+    (a) => a.toString() === memberId.toString()
+  );
+  if (already) {
+    throw new BadRequestError('User is already an attendee');
+  }
+
+  session.attendees.push(memberId);
   await session.save();
 
   return Session.findById(session._id)

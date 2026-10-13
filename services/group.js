@@ -122,3 +122,63 @@ exports.deleteGroup = async (id, userId) => {
   await group.deleteOne();
   return group;
 };
+
+// POST join a study group
+exports.joinGroup = async (id, userId) => {
+  if (!userId) {
+    throw new BadRequestError('User ID is required');
+  }
+
+  const group = await StudyGroup.findById(id);
+  if (!group) {
+    throw new NotFoundError('Study group not found');
+  }
+
+  const userIdStr = userId.toString();
+  const alreadyMember = group.members.some(
+    (m) => m.toString() === userIdStr
+  );
+
+  if (alreadyMember) {
+    throw new BadRequestError('You are already a member of this group');
+  }
+
+  group.members.push(userId);
+  await group.save();
+
+  return group.populate([OWNER_POPULATE, MEMBERS_POPULATE]);
+};
+
+// POST leave a study group
+exports.leaveGroup = async (id, userId) => {
+  if (!userId) {
+    throw new BadRequestError('User ID is required');
+  }
+
+  const group = await StudyGroup.findById(id);
+  if (!group) {
+    throw new NotFoundError('Study group not found');
+  }
+
+  const userIdStr = userId.toString();
+
+  // Business rule: the owner cannot leave their own group
+  if (group.ownerId.toString() === userIdStr) {
+    throw new BadRequestError(
+      'The owner cannot leave the group. Transfer ownership or delete the group instead.'
+    );
+  }
+
+  const before = group.members.length;
+  group.members = group.members.filter(
+    (m) => m.toString() !== userIdStr
+  );
+
+  if (group.members.length === before) {
+    throw new BadRequestError('You are not a member of this group');
+  }
+
+  await group.save();
+
+  return group.populate([OWNER_POPULATE, MEMBERS_POPULATE]);
+};

@@ -71,3 +71,17 @@ exports.leaveSession = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.addMemberToSession = async (req, res, next) => {
+  try {
+    const { memberId } = req.body;
+    const session = await sessionService.addMemberToSession(
+      req.params.id,
+      memberId,
+      req.user.id
+    );
+    res.status(200).json(session);
+  } catch (err) {
+    next(err);
+  }
+};
