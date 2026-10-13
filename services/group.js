@@ -64,6 +64,8 @@ exports.createGroup = async (data, userId) => {
   return group.populate([OWNER_POPULATE, MEMBERS_POPULATE]);
 };
 
+// GET group members 
+
 // PUT update study group
 exports.updateGroup = async (id, data, userId) => {
   const group = await StudyGroup.findById(id);

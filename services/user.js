@@ -33,7 +33,7 @@ exports.getAllUsers = async () => {
 
 // GET single user
 exports.getUserById = async (id) => {
-  const user = await User.findById(id);
+  const user = await User.findById(id).select('-password');
   if (!user) {
     throw new NotFoundError('User not found');
   }
@@ -42,12 +42,12 @@ exports.getUserById = async (id) => {
 
 // POST create user
 exports.createUser = async (data) => {
-  const { firstName, lastName, email, password, role, major } = data;
+  const { firstName, lastName, email, password, role, major, googleId, provider } = data;
 
-  // Business rule: required fields
-  if (!firstName || !lastName || !email || !password || !major) {
+  // Business rule: required fields (password is optional if logging in via OAuth)
+  if (!firstName || !lastName || !email || (!password && !googleId) || !major) {
     throw new BadRequestError(
-      'firstName, lastName, email, password, and major are required'
+      'firstName, lastName, email, password (or googleId), and major are required'
     );
   }
 
@@ -69,8 +69,10 @@ exports.createUser = async (data) => {
     lastName,
     email,
     password,
-    role,
+    role: role || 'student',
     major,
+    googleId,
+    provider: provider || 'local',
   });
 
   return user;
@@ -98,8 +100,8 @@ exports.updateUser = async (id, data) => {
     );
   }
 
-  // Whitelist of updatable fields
-  const allowed = ['firstName', 'lastName', 'email', 'password', 'role', 'major'];
+  // Whitelist of updatable fields (including OAuth fields)
+  const allowed = ['firstName', 'lastName', 'email', 'password', 'role', 'major', 'googleId', 'provider'];
   for (const key of allowed) {
     if (data[key] !== undefined) {
       user[key] = data[key];

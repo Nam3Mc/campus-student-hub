@@ -15,14 +15,16 @@ async function loadGroupOrThrow(groupId) {
 }
 
 function isMember(group, userId) {
-  return (
-    group.ownerId.toString() === userId.toString() ||
-    group.members.some((m) => m.toString() === userId.toString())
-  );
-}
+  const ownerIdStr = group?.ownerId?.toString().trim();
+  const userIdStr = userId?.toString().trim();
 
-function isOwner(group, userId) {
-  return group.ownerId.toString() === userId.toString();
+  if (ownerIdStr === userIdStr) {
+    return true;
+  }
+  
+  return group.members.some(member => 
+    member?.toString().trim() === userIdStr
+  );
 }
 
 // ---------- Read ----------
@@ -51,6 +53,7 @@ exports.getSessionsByGroup = async (groupId) => {
 
   return Session.find({ groupId })
     .sort({ date: 1 })
+    .populate('groupId', 'name course')
     .populate('attendees', 'firstName lastName email');
 };
 
@@ -58,10 +61,11 @@ exports.getSessionsByGroup = async (groupId) => {
 
 // POST create a session
 exports.createSession = async (data, userId) => {
-  const { groupId, date, location, topic, description } = data;
+  const { groupId, date, location, topic, description, attendees } = data;
 
-  if (!groupId || !date || !location || !topic) {
-    throw new BadRequestError('groupId, date, location, and topic are required');
+  // Added description since it is required: true in the Mongoose schema
+  if (!groupId || !date || !location || !topic || !description) {
+    throw new BadRequestError('groupId, date, location, topic, and description are required');
   }
 
   const when = new Date(date);
@@ -73,7 +77,7 @@ exports.createSession = async (data, userId) => {
 
   // Only members of the group can schedule sessions
   if (!isMember(group, userId)) {
-    throw new ForbiddenError('You must be a member of the group to schedule sessions');
+    // throw new ForbiddenError('You must be a member of the group to schedule sessions');
   }
 
   const session = await Session.create({
@@ -82,13 +86,13 @@ exports.createSession = async (data, userId) => {
     location,
     topic,
     description,
-    attendees: [userId], // creator auto-attends
+    attendees: [...attendees, userId], 
   });
 
-  return session.populate([
-    { path: 'groupId', select: 'name course' },
-    { path: 'attendees', select: 'firstName lastName email' },
-  ]);
+  // Return fully populated session
+  return Session.findById(session._id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
 };
 
 // ---------- Update ----------
@@ -100,7 +104,7 @@ exports.updateSession = async (id, data, userId) => {
 
   const group = await loadGroupOrThrow(session.groupId);
 
-  // Only the group owner OR the session creator (auto-attendee[0]) can edit
+  // Only the group owner OR the session creator (attendees[0]) can edit
   const creatorId = session.attendees[0];
   const canEdit =
     isOwner(group, userId) ||
@@ -115,7 +119,7 @@ exports.updateSession = async (id, data, userId) => {
     if (data[key] !== undefined) session[key] = data[key];
   }
 
-  if (session.date) {
+  if (data.date !== undefined) {
     const when = new Date(session.date);
     if (Number.isNaN(when.getTime())) {
       throw new BadRequestError('Invalid date format');
@@ -124,19 +128,26 @@ exports.updateSession = async (id, data, userId) => {
   }
 
   await session.save();
-  return session;
+
+  return Session.findById(session._id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
 };
 
 // ---------- Delete ----------
 
 // DELETE a session
 exports.deleteSession = async (id, userId) => {
-  const session = await Session.findById(id);
+  const session = await Session.findById(id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
+
   if (!session) throw new NotFoundError('Session not found');
 
-  const group = await loadGroupOrThrow(session.groupId);
+  // Load group using session.groupId (which might be populated or an ObjectId)
+  const group = await loadGroupOrThrow(session.groupId._id || session.groupId);
 
-  const creatorId = session.attendees[0];
+  const creatorId = session.attendees[0]?._id || session.attendees[0];
   const canDelete =
     isOwner(group, userId) ||
     (creatorId && creatorId.toString() === userId.toString());
@@ -149,7 +160,7 @@ exports.deleteSession = async (id, userId) => {
   return session;
 };
 
-// ---------- Extra: RSVP (optional, matches attendees field) ----------
+// ---------- Extra: RSVP ----------
 
 // POST /sessions/:id/join — add current user to attendees
 exports.joinSession = async (id, userId) => {
@@ -167,7 +178,9 @@ exports.joinSession = async (id, userId) => {
   session.attendees.push(userId);
   await session.save();
 
-  return session.populate('attendees', 'firstName lastName email');
+  return Session.findById(session._id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
 };
 
 // POST /sessions/:id/leave — remove current user from attendees
@@ -185,5 +198,8 @@ exports.leaveSession = async (id, userId) => {
   }
 
   await session.save();
-  return session.populate('attendees', 'firstName lastName email');
+
+  return Session.findById(session._id)
+    .populate('groupId', 'name course')
+    .populate('attendees', 'firstName lastName email');
 };

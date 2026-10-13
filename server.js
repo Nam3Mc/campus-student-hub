@@ -43,15 +43,6 @@ const sessionConfig = {
     },
 };
 
-// Only attach the Mongo-backed store outside tests
-if (process.env.NODE_ENV !== 'test') {
-    sessionConfig.store = MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        collectionName: 'sessions',
-        ttl: 60 * 60 * 24, // 1 day
-    });
-}
-
 app.use(session(sessionConfig));
 
 app.use(passport.initialize());

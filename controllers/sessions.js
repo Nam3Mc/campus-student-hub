@@ -34,8 +34,7 @@ exports.createSession = async (req, res, next) => {
     res.status(201).json(session);
   } catch (err) {
     next(err);
-  }
-};
+}}
 
 exports.updateSession = async (req, res, next) => {
   try {
