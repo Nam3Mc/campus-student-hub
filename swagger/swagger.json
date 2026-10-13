@@ -7,7 +7,7 @@
   },
   "servers": [
     { "url": "http://localhost:8080", "description": "Local server" },
-    { "url": "https://campus-student-hub-gamma.vercel.app", "description": "Production server (Vercel)" }
+    { "url": "https://campus-student-hub-ten.vercel.app", "description": "Production server (Vercel)" }
   ],
   "tags": [
     { "name": "Users", "description": "User management" },
@@ -328,7 +328,7 @@
                 "description": "Frontend URL or failure URL",
                 "schema": {
                   "type": "string",
-                  "example": "https://campus-student-hub-gamma.vercel.app/api-docs"
+                  "example": "https://campus-student-hub-ten.vercel.app/api-docs"
                 }
               }
             }
