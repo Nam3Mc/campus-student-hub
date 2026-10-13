@@ -251,18 +251,34 @@
       }
     },
     "/auth/logout": {
-      "get": {
+      "post": {
         "tags": ["Auth"],
-        "summary": "Log out (client-side token discard)",
+        "summary": "Log out the current user",
+        "description": "Invalidates the user's session. The client must also discard its stored     JWT after this call succeeds.",
         "security": [{ "bearerAuth": [] }],
         "responses": {
-          "200": { "description": "Logged out successfully" },
+          "200": {
+            "description": "Logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Logged out successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized — missing or invalid JWT",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" },
-                "example": { "error": "Missing or malformed Authorization header", "type": "UnauthorizedError" }
+                "example": { "error": "Missing or malformed Authorization header", "type":    "UnauthorizedError" }
               }
             }
           }

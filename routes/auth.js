@@ -8,8 +8,8 @@ const { auth } = require('../middleware/auth');
 // Local auth
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/logout', auth, authController.logout);
 router.get('/status', auth, authController.status);
-router.get('/logout', auth, authController.logout);
 
 // Google OAuth
 router.get(

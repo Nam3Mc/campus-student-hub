@@ -6,6 +6,7 @@ const {
   ConflictError,
   NotFoundError,
 } = require('../utils/errors');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
@@ -83,4 +84,24 @@ exports.getStatus = async (userId) => {
   return user;
 };
 
-exports.signToken = signToken;
+exports.logout = async (token) => {
+  if (!token) return;
+
+  const decoded = jwt.decode(token);
+  const expiresAt = decoded?.exp
+    ? new Date(decoded.exp * 1000)
+    : new Date(Date.now() + 60 * 60 * 1000); // fallback: 1h
+
+  // Upsert so calling logout twice doesn't throw a duplicate error
+  await TokenBlacklist.updateOne(
+    { token },
+    { token, expiresAt },
+    { upsert: true }
+  );
+};
+
+exports.isTokenBlacklisted = async (token) => {
+  if (!token) return false;
+  const found = await TokenBlacklist.findOne({ token }).select('_id').lean();
+  return !!found;
+};
