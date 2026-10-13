@@ -28,5 +28,21 @@ exports.status = async (req, res, next) => {
 };
 
 exports.logout = async (req, res, next) => {
-  res.status(200).json({ message: 'Logged out successfully' });
+  try {
+    // 1. Kill the Passport session, if there is one
+    if (typeof req.logout === 'function') {
+      await new Promise((resolve, reject) =>
+        req.logout((err) => (err ? reject(err) : resolve()))
+      );
+    }
+
+    // 2. Blacklist the JWT, if the request carried one
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    await authService.logout(token);
+
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (err) {
+    next(err);
+  }
 };
