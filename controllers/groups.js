@@ -54,3 +54,21 @@ exports.deleteGroup = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.joinGroup = async (req, res, next) => {
+  try {
+    const group = await studyGroupService.joinGroup(req.params.id, req.user.id);
+    res.status(200).json(group);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.leaveGroup = async (req, res, next) => {
+  try {
+    const group = await studyGroupService.leaveGroup(req.params.id, req.user.id);
+    res.status(200).json(group);
+  } catch (err) {
+    next(err);
+  }
+};

@@ -865,6 +865,110 @@
       }
     },
 
+    "/sessions/{id}/members": {
+      "post": {
+        "tags": ["Sessions"],
+        "summary": "Add a group member to a session (protected)",
+        "description": "Adds another user to the session's attendees list. Only the group owner or the session creator (first attendee) may call this. The target user must already be a member of the session's study group.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[a-f\\d]{24}$" },
+            "description": "Session ID (Mongo ObjectId)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["memberId"],
+                "properties": {
+                  "memberId": {
+                    "type": "string",
+                    "pattern": "^[a-f\\d]{24}$",
+                    "description": "ObjectId of the user to add as an attendee",
+                    "example": "650c1f1e2f3a4b5c6d7e8f90"
+                  }
+                }
+              },
+              "example": {
+                "memberId": "650c1f1e2f3a4b5c6d7e8f90"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attendee added successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request — missing memberId, user is not a group member, or user is already an attendee",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "missingMemberId": {
+                    "value": { "error": "memberId is required", "type": "BadRequestError" }
+                  },
+                  "notGroupMember": {
+                    "value": { "error": "User is not a member of this study group", "type": "BadRequestError" }
+                  },
+                  "alreadyAttendee": {
+                    "value": { "error": "User is already an attendee", "type": "BadRequestError" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — missing or invalid JWT",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "Missing or malformed Authorization header", "type": "UnauthorizedError" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller is neither the group owner nor the session creator",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "example": { "error": "You are not allowed to add attendees to this session", "type": "ForbiddenError" }
+              }
+            }
+          },
+          "404": {
+            "description": "Session or target user not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" },
+                "examples": {
+                  "sessionNotFound": {
+                    "value": { "error": "Session not found", "type": "NotFoundError" }
+                  },
+                  "userNotFound": {
+                    "value": { "error": "User not found", "type": "NotFoundError" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+
     "/resources": {
       "get": {
         "tags": ["Resources"],
